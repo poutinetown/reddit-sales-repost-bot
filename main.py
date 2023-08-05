@@ -7,20 +7,6 @@ from bs4 import BeautifulSoup
 import feedparser
 from pythorhead import Lemmy
 
-def get_new_items(subreddit_rss_url, last_entry=None):
-    # Parse the RSS feed
-    feed = feedparser.parse(subreddit_rss_url)
-
-    new_items = []
-    for entry in feed.entries:
-        # Check if the current entry is newer than the last one
-        if last_entry is None or entry.published_parsed > last_entry.published_parsed:
-            new_items.append(entry)
-
-    # Get the latest entry for future comparisons
-    latest_entry = feed.entries[0] if len(feed.entries) > 0 else last_entry
-
-    return new_items, latest_entry
 
 def format_and_extract(summary):
     soup = BeautifulSoup(summary, features="html.parser")
