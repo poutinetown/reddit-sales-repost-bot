@@ -18,10 +18,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Cache Python dependencies
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -29,14 +29,14 @@ jobs:
           ${{ runner.os }}-pip-
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.x' # Replace 'x' with the appropriate version of Python for your script
 
     - name: Download previous artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
-        name: lemmy_published_entries  # Downloads to current directory
+        name: lemmy_last_date_published  # Downloads to current directory
       continue-on-error: true
 
     - name: Install dependencies
@@ -56,7 +56,7 @@ jobs:
 
     - name: Store last_date_published.txt as an artifact
       if: ${{ always() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
-        name: lemmy_published_entries_metadata
+        name: lemmy_last_date_published
         path: last_date_published.txt
