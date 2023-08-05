@@ -1,2 +1,2 @@
-pythorhead==0.15.4
-feedparser==6.0.10
+pythorhead==0.15.*
+feedparser==6.0.*
