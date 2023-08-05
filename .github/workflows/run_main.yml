@@ -3,6 +3,9 @@ name: Run main.py every 5 minutes
 on:
   schedule:
     - cron: '*/5 * * * *' # Run every 5 minutes
+  push:
+    branches:
+      - main
 
 jobs:
   run-main-py:

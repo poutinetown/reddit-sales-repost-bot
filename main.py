@@ -47,12 +47,6 @@ def main():
     username = os.environ['LEMMY_USERNAME']
     password = os.environ['LEMMY_PASSWORD']
 
-    lemmy = Lemmy(instance_url)
-    lemmy.log_in(username, password)
-
-    community_id = lemmy.discover_community(community_name)
-    feed = feedparser.parse(subreddit_rss_url)
-
     # Read the last published date from last_date_published.txt
     try:
         with open('last_date_published.txt', 'r') as f:
@@ -63,7 +57,17 @@ def main():
         last_published = dt.datetime.now(
             dt.timezone.utc) - dt.timedelta(minutes=5, seconds=30)
 
+    lemmy = Lemmy(instance_url)
+    lemmy.log_in(username, password)
+
+    community_id = lemmy.discover_community(community_name)
+    feed = feedparser.parse(subreddit_rss_url)
+
     dt_now = dt.datetime.now(dt.timezone.utc)
+    # Update the last published date in last_date_published.txt
+    with open('last_date_published.txt', 'w') as f:
+        f.write(dt_now.isoformat())
+    
 
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
@@ -89,9 +93,6 @@ def main():
             print(f'Posted "{entry.link}"')
             time.sleep(sleep_time)
 
-    # Update the last published date in last_date_published.txt
-    with open('last_date_published.txt', 'w') as f:
-        f.write(dt_now.isoformat())
 
 
 if __name__ == "__main__":
