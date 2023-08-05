@@ -51,40 +51,43 @@ def format_and_extract(summary):
     
     return formatted, extracted_url
 
+def main():
+    instance_url = 'https://lemmy.ca'
+    community_name = 'bot_testing_ground'
+    subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
+    sleep_time = 5
 
-instance_url = 'https://lemmy.ca'
-community_name = 'bot_testing_ground'
-subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
-sleep_time = 5
+    username = os.environ['LEMMY_USERNAME']
+    password = os.environ['LEMMY_PASSWORD']
 
-username = os.environ['LEMMY_USERNAME']
-password = os.environ['LEMMY_PASSWORD']
+    time_delta_threshold = dt.timedelta(minutes=5, seconds=30)
+    dt_now = dt.datetime.now(dt.timezone.utc)
 
 
-dt_now = dt.datetime.now(dt.timezone.utc)
-time_delta_threshold = dt.timedelta(hours=5, minutes=5, seconds=30)
+    lemmy = Lemmy(instance_url)
+    lemmy.log_in(username, password)
 
-lemmy = Lemmy(instance_url)
-lemmy.log_in(username, password)
+    community_id = lemmy.discover_community(community_name)
+    feed = feedparser.parse(subreddit_rss_url)
 
-community_id = lemmy.discover_community(community_name)
-feed = feedparser.parse(subreddit_rss_url)
+    for entry in feed.entries:
+        dt_published = dt.datetime.fromisoformat(entry.published)
+        time_diff = dt_now - dt_published
 
-for entry in feed.entries:
-    dt_published = dt.datetime.fromisoformat(entry.published)
-    time_diff = dt_now - dt_published
+        if time_diff > time_delta_threshold:
+            time_diff_str = str(time_diff - dt.timedelta(microseconds=time_diff.microseconds))
+            print(f"Entry '{entry.link}' was published {time_diff_str} ago, which is greater than {time_delta_threshold}")
+        else:
+            # Publish the summary to lemmy and sleep for a bit
+            formatted, extracted_url = format_and_extract(entry.summary)
+            lemmy.post.create(
+                community_id=community_id,
+                name=html.unescape(entry.title),
+                url=extracted_url,
+                body=formatted,
+            )
+            print(f'Posted "{entry.link}"')
+            time.sleep(sleep_time)
 
-    if time_diff > time_delta_threshold:
-        time_diff_str = str(time_diff - dt.timedelta(microseconds=time_diff.microseconds))
-        print(f"Entry '{entry.link}' was published {time_diff_str} ago, which is greater than {time_delta_threshold}")
-    else:
-        # Publish the summary to lemmy and sleep for a bit
-        formatted, extracted_url = format_and_extract(entry.summary)
-        lemmy.post.create(
-            community_id=community_id,
-            name=html.unescape(entry.title),
-            url=extracted_url,
-            body=formatted,
-        )
-        print(f'Posted "{entry.link}"')
-        time.sleep(sleep_time)
+if __name__ == "__main__":
+    main()
