@@ -47,6 +47,7 @@ jobs:
     - name: Update LAST_DATE_PUBLISHED using Repository Dispatch
       if: ${{ always() }}
       run: |
+        LAST_DATE_PUBLISHED=$(cat last_date_published.txt)
         curl -X POST \
           -H "Authorization: token $GH_PAT" \
           -H "Accept: application/vnd.github.everest-preview+json" \

@@ -48,11 +48,11 @@ def main():
     password = os.environ['LEMMY_PASSWORD']
 
     # Read the last published date from last_date_published.txt
-    try:
-        with open('last_date_published.txt', 'r') as f:
-            last_published_str = f.read().strip()
-            last_published = dt.datetime.fromisoformat(last_published_str)
-    except FileNotFoundError:
+    if 'LAST_DATE_PUBLISHED' in os.environ:
+        last_published_str = os.environ['LAST_DATE_PUBLISHED']
+        last_published = dt.datetime.fromisoformat(last_published_str)
+
+    else:
         # If last_date_published.txt does not exist, set an initial last_published
         last_published = dt.datetime.now(
             dt.timezone.utc) - dt.timedelta(minutes=5, seconds=30)
@@ -64,10 +64,10 @@ def main():
     feed = feedparser.parse(subreddit_rss_url)
 
     dt_now = dt.datetime.now(dt.timezone.utc)
+    
     # Update the last published date in last_date_published.txt
     with open('last_date_published.txt', 'w') as f:
         f.write(dt_now.isoformat())
-    
 
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
@@ -92,7 +92,6 @@ def main():
             )
             print(f'Posted "{entry.link}"')
             time.sleep(sleep_time)
-
 
 
 if __name__ == "__main__":
