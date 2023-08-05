@@ -1,1 +1,2 @@
 pythorhead==0.15.4
+feedparser==6.0.10
