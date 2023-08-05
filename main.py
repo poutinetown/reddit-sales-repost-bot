@@ -7,20 +7,6 @@ from bs4 import BeautifulSoup
 import feedparser
 from pythorhead import Lemmy
 
-def get_new_items(subreddit_rss_url, last_entry=None):
-    # Parse the RSS feed
-    feed = feedparser.parse(subreddit_rss_url)
-
-    new_items = []
-    for entry in feed.entries:
-        # Check if the current entry is newer than the last one
-        if last_entry is None or entry.published_parsed > last_entry.published_parsed:
-            new_items.append(entry)
-
-    # Get the latest entry for future comparisons
-    latest_entry = feed.entries[0] if len(feed.entries) > 0 else last_entry
-
-    return new_items, latest_entry
 
 def format_and_extract(summary):
     soup = BeautifulSoup(summary, features="html.parser")
@@ -51,6 +37,7 @@ def format_and_extract(summary):
     
     return formatted, extracted_url
 
+
 def main():
     instance_url = 'https://lemmy.ca'
     community_name = 'bot_testing_ground'
@@ -60,9 +47,46 @@ def main():
     username = os.environ['LEMMY_USERNAME']
     password = os.environ['LEMMY_PASSWORD']
 
-    time_delta_threshold = dt.timedelta(minutes=5, seconds=30)
+    lemmy = Lemmy(instance_url)
+    lemmy.log_in(username, password)
+
+    community_id = lemmy.discover_community(community_name)
+    feed = feedparser.parse(subreddit_rss_url)
+
+    # Read the last published date from last_date_published.txt
+    try:
+        with open('last_date_published.txt', 'r') as f:
+            last_published_str = f.read().strip()
+            last_published = dt.datetime.fromisoformat(last_published_str)
+    except FileNotFoundError:
+        # If last_date_published.txt does not exist, set an initial last_published
+        last_published = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5, seconds=30)
+
     dt_now = dt.datetime.now(dt.timezone.utc)
 
+    for entry in feed.entries:
+        dt_published = dt.datetime.fromisoformat(entry.published)
+
+        if dt_published > last_published:
+            # Your existing code
+            time_diff = dt_now - dt_published
+            time_diff_str = str(time_diff - dt.timedelta(microseconds=time_diff.microseconds))
+            print(f"Entry '{entry.link}' was published {time_diff_str} ago, which is a")
+            # ... rest of the code ...
+
+    # Update the last published date in last_date_published.txt
+    with open('last_date_published.txt', 'w') as f:
+        f.write(dt_now.isoformat())
+
+
+def main():
+    instance_url = 'https://lemmy.ca'
+    community_name = 'bot_testing_ground'
+    subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
+    sleep_time = 5
+
+    username = os.environ['LEMMY_USERNAME']
+    password = os.environ['LEMMY_PASSWORD']
 
     lemmy = Lemmy(instance_url)
     lemmy.log_in(username, password)
@@ -70,13 +94,26 @@ def main():
     community_id = lemmy.discover_community(community_name)
     feed = feedparser.parse(subreddit_rss_url)
 
+    # Read the last published date from last_date_published.txt
+    try:
+        with open('last_date_published.txt', 'r') as f:
+            last_published_str = f.read().strip()
+            last_published = dt.datetime.fromisoformat(last_published_str)
+    except FileNotFoundError:
+        # If last_date_published.txt does not exist, set an initial last_published
+        last_published = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5, seconds=30)
+
+    dt_now = dt.datetime.now(dt.timezone.utc)
+
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
-        time_diff = dt_now - dt_published
 
-        if time_diff > time_delta_threshold:
+        if dt_published < last_published:
+            time_diff = dt_now - dt_published
             time_diff_str = str(time_diff - dt.timedelta(microseconds=time_diff.microseconds))
-            print(f"Entry '{entry.link}' was published {time_diff_str} ago, which is greater than {time_delta_threshold}")
+            last_pub_diff = dt_now - last_published
+            last_pub_diff_str = str(last_pub_diff - dt.timedelta(microseconds=last_pub_diff.microseconds))
+            print(f"Entry '{entry.link}' was published on reddit {time_diff_str} ago, but the last fetch was {str(last_pub_diff_str)} ago.")
         else:
             # Publish the summary to lemmy and sleep for a bit
             formatted, extracted_url = format_and_extract(entry.summary)
@@ -88,6 +125,11 @@ def main():
             )
             print(f'Posted "{entry.link}"')
             time.sleep(sleep_time)
+
+    # Update the last published date in last_date_published.txt
+    with open('last_date_published.txt', 'w') as f:
+        f.write(dt_now.isoformat())
+
 
 if __name__ == "__main__":
     main()

@@ -1,2 +1,3 @@
 pythorhead==0.15.*
 feedparser==6.0.*
+BeautifulSoup4

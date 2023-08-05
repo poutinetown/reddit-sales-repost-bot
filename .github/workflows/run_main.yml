@@ -20,14 +20,31 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.10'
+        python-version: '3.x' # Replace 'x' with the appropriate version of Python for your script
+
+    - name: Download previous artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: lemmy_published_entries  # Downloads to current directory
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install -r requirements.txt # If your script has dependencies, list them in requirements.txt
 
     - name: Run main.py
-      run: python main.py
+      run: python main.py # Replace 'main.py' with the actual filename if different
       env:
         LEMMY_USERNAME: ${{ secrets.LEMMY_USERNAME }}
         LEMMY_PASSWORD: ${{ secrets.LEMMY_PASSWORD }}
+
+    - name: Store last published date as an artifact
+      if: ${{ always() }}
+      run: cp last_date_published.txt $GITHUB_WORKSPACE/last_date_published.txt
+      continue-on-error: true
+
+    - name: Store last_date_published.txt as an artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: lemmy_published_entries_metadata
+        path: last_date_published.txt
