@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - test-ci
 
 jobs:
   run-main-py:
@@ -15,30 +16,22 @@ jobs:
     env:
       LEMMY_USERNAME: ${{ secrets.LEMMY_USERNAME }}
       LEMMY_PASSWORD: ${{ secrets.LEMMY_PASSWORD }}
+      GH_PAT: ${{ secrets.GH_PAT }} # Personal Access Token
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-
-    # - name: Cache Python dependencies
-    #   uses: actions/cache@v3
-    #   with:
-    #     path: ~/.cache/pip
-    #     key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-pip-
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.x' # Replace 'x' with the appropriate version of Python for your script
 
-    - name: Download previous artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: lemmy_last_date_published
-        path: last_date_published.txt
-      continue-on-error: true
+    - name: Get previous LAST_DATE_PUBLISHED value
+      id: get_value
+      run: echo "::set-output name=last_date_published::${{ env.LAST_DATE_PUBLISHED }}"
+      env:
+        LAST_DATE_PUBLISHED: ${{ env.LAST_DATE_PUBLISHED }}
 
     - name: Install dependencies
       run: |
@@ -49,10 +42,14 @@ jobs:
       env:
         LEMMY_USERNAME: ${{ secrets.LEMMY_USERNAME }}
         LEMMY_PASSWORD: ${{ secrets.LEMMY_PASSWORD }}
+        LAST_DATE_PUBLISHED: ${{ steps.get_value.outputs.last_date_published }}
 
-    - name: Store last_date_published.txt as an artifact
+    - name: Update LAST_DATE_PUBLISHED using Repository Dispatch
       if: ${{ always() }}
-      uses: actions/upload-artifact@v3
-      with:
-        name: lemmy_last_date_published
-        path: last_date_published.txt
+      run: |
+        curl -X POST \
+          -H "Authorization: token $GH_PAT" \
+          -H "Accept: application/vnd.github.everest-preview+json" \
+          -H "Content-Type: application/json" \
+          https://api.github.com/repos/${{ github.repository }}/dispatches \
+          --data '{"event_type": "update_variable", "client_payload": {"last_date_published": "'"$LAST_DATE_PUBLISHED"'"}}'
