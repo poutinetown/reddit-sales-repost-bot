@@ -1,3 +1,11 @@
+"""
+Note: Unfortunately, at the moment, GitHub has no easy way to persist artifacts across
+multiple runs, which means this script will try to load a last_date_published.txt file
+that will never exist, thus fall back to the default `offset` value. In the future, an
+improvement would be to find a way to persist this last_date_published.txt file (or an
+environment variable that holds this value), maybe using the github actions workflow or 
+some other method.
+"""
 import os
 import datetime as dt
 import time
@@ -38,6 +46,23 @@ def format_and_extract(summary):
     return formatted, extracted_url
 
 
+def get_last_published_time(path='last_date_published.txt', offset=dt.timedelta(minutes=5, seconds=30)):
+    try:
+        with open(path, 'r') as f:
+            last_published_str = f.read().strip()
+            last_published = dt.datetime.fromisoformat(last_published_str)
+    except FileNotFoundError:
+        # If last_date_published.txt does not exist, set an initial last_published
+        dt_now = dt.datetime.now(dt.timezone.utc)
+        last_published = dt_now - offset
+    return last_published
+
+
+def write_last_published_time(dt_now, path='last_date_published.txt'):
+    with open(path, 'w') as f:
+        f.write(dt_now.isoformat())
+
+
 def main():
     instance_url = 'https://lemmy.ca'
     community_name = 'bot_testing_ground'
@@ -48,26 +73,17 @@ def main():
     password = os.environ['LEMMY_PASSWORD']
 
     # Read the last published date from last_date_published.txt
-    try:
-        with open('last_date_published.txt', 'r') as f:
-            last_published_str = f.read().strip()
-            last_published = dt.datetime.fromisoformat(last_published_str)
-    except FileNotFoundError:
-        # If last_date_published.txt does not exist, set an initial last_published
-        last_published = dt.datetime.now(
-            dt.timezone.utc) - dt.timedelta(minutes=5, seconds=30)
 
     lemmy = Lemmy(instance_url)
     lemmy.log_in(username, password)
 
+    last_published = get_last_published_time()
+
     community_id = lemmy.discover_community(community_name)
     feed = feedparser.parse(subreddit_rss_url)
-
     dt_now = dt.datetime.now(dt.timezone.utc)
-    # Update the last published date in last_date_published.txt
-    with open('last_date_published.txt', 'w') as f:
-        f.write(dt_now.isoformat())
-    
+
+    write_last_published_time(dt_now)
 
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
@@ -92,7 +108,6 @@ def main():
             )
             print(f'Posted "{entry.link}"')
             time.sleep(sleep_time)
-
 
 
 if __name__ == "__main__":
