@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - devel
 
 jobs:
   run-main-py:
@@ -43,7 +42,6 @@ jobs:
         python gh_download_artifact.py \
           --owner ${{ github.repository_owner }} \
           --repo ${{ github.event.repository.name }} \
-          --run_id ${{ github.run_id }} \
           --artifact_name lemmy_last_date_published \
           --token ${{ secrets.GH_PAT }} \
           --save_dir "./"
