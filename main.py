@@ -88,7 +88,10 @@ def main():
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
 
-        if dt_published < last_published:
+        if 'General Discussion - Daily Thread' in entry.title:
+            print(f'Skipping Reddit Discussion Thread: {entry.title}')
+        
+        elif dt_published < last_published:
             time_diff = dt_now - dt_published
             time_diff_str = str(
                 time_diff - dt.timedelta(microseconds=time_diff.microseconds))
