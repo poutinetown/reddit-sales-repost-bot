@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - devel
 
 jobs:
   run-main-py:
@@ -36,6 +37,15 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt # If your script has dependencies, list them in requirements.txt
+
+    - name: Run gh_download_artifact.py
+      run: |
+        python gh_download_artifact.py \
+          --owner ${{ github.repository_owner }} \
+          --repo ${{ github.event.repository.name }} \
+          --artifact_name lemmy_last_date_published \
+          --token ${{ secrets.GH_PAT }} \
+          --save_dir "./"
 
     - name: Run main.py
       run: python main.py # Replace 'main.py' with the actual filename if different
