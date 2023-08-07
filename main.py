@@ -46,7 +46,7 @@ def format_and_extract(summary):
     return formatted, extracted_url
 
 
-def get_last_published_time(path='last_date_published.txt', offset=dt.timedelta(minutes=5, seconds=30)):
+def get_last_published_time(path='last_date_published.txt', offset=dt.timedelta(minutes=10, seconds=45)):
     try:
         with open(path, 'r') as f:
             last_published_str = f.read().strip()
