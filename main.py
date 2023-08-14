@@ -65,7 +65,7 @@ def write_last_published_time(dt_now, path='last_date_published.txt'):
 
 def main():
     instance_url = 'https://lemmy.ca'
-    community_name = 'bot_testing_ground'
+    community_name = 'bapcsalescanada'
     subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
     sleep_time = 5
 
