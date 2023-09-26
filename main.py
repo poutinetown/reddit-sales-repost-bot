@@ -11,6 +11,7 @@ import datetime as dt
 import time
 import html
 
+import tldextract
 from bs4 import BeautifulSoup
 import feedparser
 from pythorhead import Lemmy
@@ -62,6 +63,14 @@ def write_last_published_time(dt_now, path='last_date_published.txt'):
     with open(path, 'w') as f:
         f.write(dt_now.isoformat())
 
+def load_ignored_domains(path="ignored.txt", as_set=True):
+    with open(path) as f:
+        lines = [l.strip() for l in f.readlines()]
+    lines = [l for l in lines if not l.startswith('#') and l != ""]
+    if as_set is True:
+        lines = set(lines)
+    
+    return lines
 
 def main():
     instance_url = 'https://lemmy.ca'
@@ -71,6 +80,8 @@ def main():
 
     username = os.environ['LEMMY_USERNAME']
     password = os.environ['LEMMY_PASSWORD']
+
+    ignored_domains = load_ignored_domains()
 
     # Read the last published date from last_date_published.txt
 
@@ -103,14 +114,25 @@ def main():
         else:
             # Publish the summary to lemmy and sleep for a bit
             formatted, extracted_url = format_and_extract(entry.summary)
-            lemmy.post.create(
-                community_id=community_id,
-                name=html.unescape(entry.title),
-                url=extracted_url,
-                body=formatted,
-            )
-            print(f'Posted "{entry.link}"')
-            time.sleep(sleep_time)
+
+            try:
+                url_parsed = tldextract.extract(extracted_url)
+                base_domain = f"{url_parsed.domain}.{url_parsed.suffix}"
+            except:
+                base_domain = -1
+            
+            if base_domain in ignored_domains:
+                print(f"The following post was ignored because the shared link was matched with '{base_domain}' in the ignore list: {entry.link}")
+            else:
+                lemmy.post.create(
+                    community_id=community_id,
+                    name=html.unescape(entry.title),
+                    url=extracted_url,
+                    body=formatted,
+                )
+
+                print(f'Posted "{entry.link}"')
+                time.sleep(sleep_time)
 
 
 if __name__ == "__main__":

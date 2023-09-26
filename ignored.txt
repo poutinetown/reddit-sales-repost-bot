@@ -1,0 +1,9 @@
+# Any domain in this list will be ignored when reposting from Reddit
+# Please only use the format {domain}.{tld}, for example: superspam.co.uk, badwebsite.com, spyware.io
+
+ipspeed.tv
+store.minisforum.com
+indiatoday.in
+blogspot.com
+youtube.com
+celebsweek.com
