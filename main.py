@@ -80,6 +80,7 @@ def main():
 
     username = os.environ['LEMMY_USERNAME']
     password = os.environ['LEMMY_PASSWORD']
+    # feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
 
     ignored_domains = load_ignored_domains()
 
@@ -92,9 +93,13 @@ def main():
 
     community_id = lemmy.discover_community(community_name)
     feed = feedparser.parse(subreddit_rss_url)
-    dt_now = dt.datetime.now(dt.timezone.utc)
 
+    print("Total number of feed entries:", len(feed.entries))
+    dt_now = dt.datetime.now(dt.timezone.utc)
     write_last_published_time(dt_now)
+    print("Written last published time as:", dt_now)
+
+    entries_to_publish = []
 
     for entry in feed.entries:
         dt_published = dt.datetime.fromisoformat(entry.published)
@@ -112,27 +117,31 @@ def main():
             print(
                 f"Entry '{entry.link}' was published on reddit {time_diff_str} ago, but the last fetch was {str(last_pub_diff_str)} ago.")
         else:
-            # Publish the summary to lemmy and sleep for a bit
-            formatted, extracted_url = format_and_extract(entry.summary)
+            entries_to_publish.append(entry)
+    
+    print("Number of entries to be published to lemmy:", len(entries_to_publish))
+    for entry in entries_to_publish:
+        # Publish the summary to lemmy and sleep for a bit
+        formatted, extracted_url = format_and_extract(entry.summary)
 
-            try:
-                url_parsed = tldextract.extract(extracted_url)
-                base_domain = f"{url_parsed.domain}.{url_parsed.suffix}"
-            except:
-                base_domain = -1
-            
-            if base_domain in ignored_domains:
-                print(f"The following post was ignored because the shared link was matched with '{base_domain}' in the ignore list: {entry.link}")
-            else:
-                lemmy.post.create(
-                    community_id=community_id,
-                    name=html.unescape(entry.title),
-                    url=extracted_url,
-                    body=formatted,
-                )
+        try:
+            url_parsed = tldextract.extract(extracted_url)
+            base_domain = f"{url_parsed.domain}.{url_parsed.suffix}"
+        except:
+            base_domain = -1
+        
+        if base_domain in ignored_domains:
+            print(f"The following post was ignored because the shared link was matched with '{base_domain}' in the ignore list: {entry.link}")
+        else:
+            lemmy.post.create(
+                community_id=community_id,
+                name=html.unescape(entry.title),
+                url=extracted_url,
+                body=formatted,
+            )
 
-                print(f'Posted "{entry.link}"')
-                time.sleep(sleep_time)
+            print(f'Posted "{entry.link}"')
+            time.sleep(sleep_time)
 
 
 if __name__ == "__main__":
