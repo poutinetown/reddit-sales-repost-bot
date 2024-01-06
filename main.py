@@ -10,6 +10,8 @@ import os
 import datetime as dt
 import time
 import html
+import json
+from urllib.parse import urlparse
 
 import tldextract
 from bs4 import BeautifulSoup
@@ -19,26 +21,26 @@ from pythorhead import Lemmy
 
 def format_and_extract(summary):
     soup = BeautifulSoup(summary, features="html.parser")
-    links = soup.find_all('a')
+    links = soup.find_all("a")
 
     extracted_url = None
     formatted = ""
 
     for link in links:
         first_child = next(link.children).strip()
-        url = link.get('href')
+        url = link.get("href")
 
-        if first_child == '[link]':
+        if first_child == "[link]":
             extracted_url = url
-            text = 'Link Shared on Reddit'
-        elif first_child == '[comments]':
-            text = 'Original Reddit Comments'
-        elif first_child.startswith('/u/'):
-            text = f'Author: {first_child}'
+            text = "Link Shared on Reddit"
+        elif first_child == "[comments]":
+            text = "Original Reddit Comments"
+        elif first_child.startswith("/u/"):
+            text = f"Author: {first_child}"
         else:
-            if first_child.startswith('['):
+            if first_child.startswith("["):
                 first_child = first_child[1:]
-            if first_child.endswith(']'):
+            if first_child.endswith("]"):
                 first_child = first_child[:-1]
             text = html.unescape(first_child)
 
@@ -47,9 +49,11 @@ def format_and_extract(summary):
     return formatted, extracted_url
 
 
-def get_last_published_time(path='last_date_published.txt', offset=dt.timedelta(minutes=10, seconds=45)):
+def get_last_published_time(
+    path="last_date_published.txt", offset=dt.timedelta(minutes=10, seconds=45)
+):
     try:
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             last_published_str = f.read().strip()
             last_published = dt.datetime.fromisoformat(last_published_str)
     except FileNotFoundError:
@@ -58,34 +62,93 @@ def get_last_published_time(path='last_date_published.txt', offset=dt.timedelta(
         last_published = dt_now - offset
     return last_published
 
+def load_published_urls_dict(path="published_urls.json"):
+    try:
+        with open(path, "r") as f:
+            published_urls_dict = json.load(f)
+    except FileNotFoundError:
+        published_urls_dict = {}
 
-def write_last_published_time(dt_now, path='last_date_published.txt'):
-    with open(path, 'w') as f:
+    return published_urls_dict
+
+def save_published_urls_dict(published_urls_dict, path="published_urls.json"):
+    with open(path, "w") as f:
+        json.dump(published_urls_dict, f, indent=2)
+
+def write_last_published_time(dt_now, path="last_date_published.txt"):
+    with open(path, "w") as f:
         f.write(dt_now.isoformat())
+
 
 def load_ignored_domains(path="ignored.txt", as_set=True):
     with open(path) as f:
         lines = [l.strip() for l in f.readlines()]
-    lines = [l for l in lines if not l.startswith('#') and l != ""]
+    lines = [l for l in lines if not l.startswith("#") and l != ""]
     if as_set is True:
         lines = set(lines)
-    
+
     return lines
 
+def find_base_domain(extracted_url):
+    try:
+        url_parsed = tldextract.extract(extracted_url)
+        base_domain = f"{url_parsed.domain}.{url_parsed.suffix}"
+    except:
+        base_domain = -1
+    
+    return base_domain
+
+def remove_old_url_keys(url_dict, limit_hours=24):
+    """
+    Remove entries that are older than `limit_hours` hours
+    """
+
+    new_entries = {}
+
+    dt_now = dt.datetime.now(dt.timezone.utc)
+
+    for url, entry in url_dict.items():
+        entry_published = dt.datetime.fromisoformat(entry["published_time"])
+        time_diff = dt_now - entry_published
+
+        if time_diff < dt.timedelta(hours=limit_hours):
+            new_entries[url] = entry
+
+    return new_entries
+
+def remove_old_entries(entries, limit_hours=24):
+    """
+    Remove entries that are older than `limit_hours` hours
+    """
+
+    new_entries = []
+
+    dt_now = dt.datetime.now(dt.timezone.utc)
+
+    for entry in entries:
+        entry_published = dt.datetime.fromisoformat(entry.published)
+        time_diff = dt_now - entry_published
+
+        if time_diff < dt.timedelta(hours=limit_hours):
+            new_entries.append(entry)
+
+    return new_entries
+
 def main():
-    instance_url = 'https://lemmy.ca'
-    community_name = 'bapcsalescanada'
+    limit_hours = 24
+    instance_url = "https://lemmy.ca"
+    # community_name = 'bapcsalescanada'
+    community_name = "bot_testing_ground"
     subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
     sleep_time = 5
 
-    username = os.environ['LEMMY_USERNAME']
-    password = os.environ['LEMMY_PASSWORD']
+    username = os.environ["LEMMY_USERNAME"]
+    password = os.environ["LEMMY_PASSWORD"]
     # feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
 
     ignored_domains = load_ignored_domains()
 
     # Read the last published date from last_date_published.txt
-
     lemmy = Lemmy(instance_url)
     lemmy.log_in(username, password)
 
@@ -98,51 +161,55 @@ def main():
     dt_now = dt.datetime.now(dt.timezone.utc)
     write_last_published_time(dt_now)
     print("Written last published time as:", dt_now)
+    
+    published_urls_dict = load_published_urls_dict()
+    published_urls_dict = remove_old_url_keys(published_urls_dict, limit_hours=limit_hours)
+    print(f"Found {len(published_urls_dict)} entries published in the last {limit_hours} hours")
 
     entries_to_publish = []
-
     for entry in feed.entries:
-        dt_published = dt.datetime.fromisoformat(entry.published)
+        entry_published = dt.datetime.fromisoformat(entry.published)
+        time_diff = dt_now - entry_published
+        path = urlparse(entry.link).path
 
-        if 'General Discussion - Daily Thread' in entry.title:
-            print(f'Skipping Reddit Discussion Thread: {entry.title}')
+        if "General Discussion - Daily Thread" in entry.title:
+            print(f"Skip Reddit Discussion Thread: {path}")
         
-        elif dt_published < last_published:
-            time_diff = dt_now - dt_published
-            time_diff_str = str(
-                time_diff - dt.timedelta(microseconds=time_diff.microseconds))
-            last_pub_diff = dt_now - last_published
-            last_pub_diff_str = str(
-                last_pub_diff - dt.timedelta(microseconds=last_pub_diff.microseconds))
-            print(
-                f"Entry '{entry.link}' was published on reddit {time_diff_str} ago, but the last fetch was {str(last_pub_diff_str)} ago.")
+        elif time_diff > dt.timedelta(hours=limit_hours):
+            print(f"Skip entry published >{limit_hours}h ago: {path}")
+        elif entry.link in published_urls_dict:
+            print(f"Skip entry already published:  {path}")
         else:
             entries_to_publish.append(entry)
-    
-    print("Number of entries to be published to lemmy:", len(entries_to_publish))
+
+    print("\nNumber of entries to be published to lemmy:", len(entries_to_publish))
+
     for entry in entries_to_publish:
         # Publish the summary to lemmy and sleep for a bit
+        path = urlparse(entry.link).path
         formatted, extracted_url = format_and_extract(entry.summary)
+        base_domain = find_base_domain(extracted_url)
 
-        try:
-            url_parsed = tldextract.extract(extracted_url)
-            base_domain = f"{url_parsed.domain}.{url_parsed.suffix}"
-        except:
-            base_domain = -1
-        
         if base_domain in ignored_domains:
-            print(f"The following post was ignored because the shared link was matched with '{base_domain}' in the ignore list: {entry.link}")
+            print(
+                f"Ignore post with link matched to '{base_domain}' in ignore list: {path}"
+            )
+                
         else:
+            print(f"Publishing post: {path}")
             lemmy.post.create(
                 community_id=community_id,
                 name=html.unescape(entry.title),
                 url=extracted_url,
                 body=formatted,
             )
-
-            print(f'Posted "{entry.link}"')
             time.sleep(sleep_time)
 
+            # Now, add this to list of published files
+            published_urls_dict[entry.link] = {"published_time": entry.published}
+
+
+    save_published_urls_dict(published_urls_dict)
 
 if __name__ == "__main__":
     main()

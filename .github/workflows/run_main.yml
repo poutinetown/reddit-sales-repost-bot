@@ -38,12 +38,21 @@ jobs:
       run: |
         pip install -r requirements.txt # If your script has dependencies, list them in requirements.txt
 
-    - name: Run gh_download_artifact.py
+    - name: Run gh_download_artifact.py to download 'last_date_published.txt'
       run: |
         python gh_download_artifact.py \
           --owner ${{ github.repository_owner }} \
           --repo ${{ github.event.repository.name }} \
           --artifact_name lemmy_last_date_published \
+          --token ${{ secrets.GH_PAT }} \
+          --save_dir "./"
+    
+    - name: Run gh_download_artifact.py to download 'published_urls.json'
+      run: |
+        python gh_download_artifact.py \
+          --owner ${{ github.repository_owner }} \
+          --repo ${{ github.event.repository.name }} \
+          --artifact_name lemmy_published_urls \
           --token ${{ secrets.GH_PAT }} \
           --save_dir "./"
 
@@ -53,9 +62,16 @@ jobs:
         LEMMY_USERNAME: ${{ secrets.LEMMY_USERNAME }}
         LEMMY_PASSWORD: ${{ secrets.LEMMY_PASSWORD }}
 
-    - name: Store last_date_published.txt as an artifact
+    - name: Store 'last_date_published.txt' as an artifact
       if: ${{ always() }}
       uses: actions/upload-artifact@v3
       with:
         name: lemmy_last_date_published
         path: last_date_published.txt
+    
+    - name: Store 'published_urls.json' as an artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: lemmy_published_urls
+        path: published_urls.json
