@@ -137,14 +137,12 @@ def remove_old_entries(entries, limit_hours=24):
 def main():
     limit_hours = 24
     instance_url = "https://lemmy.ca"
-    # community_name = 'bapcsalescanada'
-    community_name = "bot_testing_ground"
+    community_name = 'bapcsalescanada'
     subreddit_rss_url = "https://www.reddit.com/r/bapcsalescanada/new/.rss"
     sleep_time = 5
 
     username = os.environ["LEMMY_USERNAME"]
     password = os.environ["LEMMY_PASSWORD"]
-    # feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
 
     ignored_domains = load_ignored_domains()
 
@@ -153,6 +151,7 @@ def main():
     lemmy.log_in(username, password)
 
     last_published = get_last_published_time()
+    print("Fetched last published date:", last_published)
 
     community_id = lemmy.discover_community(community_name)
     feed = feedparser.parse(subreddit_rss_url)
@@ -164,7 +163,7 @@ def main():
     
     published_urls_dict = load_published_urls_dict()
     published_urls_dict = remove_old_url_keys(published_urls_dict, limit_hours=limit_hours)
-    print(f"Found {len(published_urls_dict)} entries published in the last {limit_hours} hours")
+    print(f"Found {len(published_urls_dict)} URLs from reddit that was published to lemmy in the last {limit_hours} hours")
 
     entries_to_publish = []
     for entry in feed.entries:
