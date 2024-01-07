@@ -1,4 +1,4 @@
 BeautifulSoup4
-pythorhead==0.18.*
+pythorhead==0.20.*
 feedparser==6.0.*
 tldextract==5.*
